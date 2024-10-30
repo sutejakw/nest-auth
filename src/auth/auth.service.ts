@@ -12,11 +12,15 @@ import { LoginDto } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import { ObjectId } from 'mongodb';
 import { IUser } from './interfaces/user.interface';
+import { RefreshToken } from './schemas/refresh-token.schema';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectModel(User.name) private UserModel: Model<User>,
+    @InjectModel(RefreshToken.name)
+    private RefreshTokenModel: Model<RefreshToken>,
     private JwtService: JwtService,
   ) {}
 
@@ -66,9 +70,21 @@ export class AuthService {
 
   async generateUserTokens(userId: ObjectId) {
     const accessToken = this.JwtService.sign({ userId }, { expiresIn: '1h' });
+    const refreshToken = uuidv4();
+
+    await this.storeRefreshToken(refreshToken, userId);
 
     return {
       accessToken,
+      refreshToken,
     };
+  }
+
+  async storeRefreshToken(token: string, userId: ObjectId) {
+    // calculate expiry date 3 days from now
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + 3);
+
+    await this.RefreshTokenModel.create({ token, userId, expiryDate });
   }
 }

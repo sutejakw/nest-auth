@@ -34,7 +34,8 @@
     "editorconfig-tools": "^0.1.1",
     "mongoose": "^8.7.3",
     "reflect-metadata": "^0.2.0",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "uuid": "^11.0.2"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",
