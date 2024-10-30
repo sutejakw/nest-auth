@@ -65,7 +65,11 @@ export class AuthService {
     }
 
     // generate jwt token
-    return this.generateUserTokens(user._id);
+    const tokens = await this.generateUserTokens(user._id);
+    return {
+      ...tokens,
+      userId: user._id,
+    };
   }
 
   async generateUserTokens(userId: ObjectId) {
@@ -86,5 +90,19 @@ export class AuthService {
     expiryDate.setDate(expiryDate.getDate() + 3);
 
     await this.RefreshTokenModel.create({ token, userId, expiryDate });
+  }
+
+  async refreshTokens(refreshToken: string) {
+    // check if refreshToken is expired
+    const token = await this.RefreshTokenModel.findOneAndDelete({
+      token: refreshToken,
+      expiryDate: { $gte: new Date() },
+    });
+
+    if (!token) {
+      throw new UnauthorizedException('Refresh Token is invalid');
+    }
+
+    return this.generateUserTokens(token.userId);
   }
 }
