@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { User } from './schemas/user.schema';
@@ -114,5 +115,42 @@ export class AuthService {
     }
 
     return this.generateUserTokens(token.userId);
+  }
+
+  async changePassword(
+    userId: ObjectId,
+    oldPassword: string,
+    newPassword: string,
+  ) {
+    // find the user
+    const user = await this.UserModel.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found...');
+    }
+
+    // compare the old password with the password in DB
+    const passwordMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!passwordMatch) {
+      throw new UnauthorizedException('Wrong credentials');
+    }
+
+    // change user's password
+    const newHashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = newHashedPassword;
+    user.save();
+
+    return {
+      msg: 'Password successfuly changed.',
+    };
+  }
+
+  async forgetPassword(email: string) {
+    const user = await this.UserModel.findOne({ email });
+    if (user) {
+    }
+
+    return {
+      message: 'If this user exists, they will receive an email',
+    };
   }
 }
