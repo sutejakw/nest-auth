@@ -139,4 +139,14 @@ export class AuthService {
       msg: 'Password successfuly changed.',
     };
   }
+
+  async forgetPassword(email: string) {
+    const user = await this.UserModel.findOne({ email });
+    if (user) {
+    }
+
+    return {
+      message: 'If this user exists, they will receive an email',
+    };
+  }
 }
