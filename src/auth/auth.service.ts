@@ -44,6 +44,10 @@ export class AuthService {
       email,
       password: hashedPassword,
     });
+
+    return {
+      msg: 'oke',
+    };
   }
 
   async login(credentials: LoginDto) {
