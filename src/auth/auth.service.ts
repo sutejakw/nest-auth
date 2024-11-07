@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -15,6 +16,9 @@ import { ObjectId } from 'mongodb';
 import { IUser } from './interfaces/user.interface';
 import { RefreshToken } from './schemas/refresh-token.schema';
 import { v4 as uuidv4 } from 'uuid';
+import { nanoid } from 'nanoid';
+import { ResetToken } from './schemas/reset-token.schema';
+import { MailService } from './services/mail.service';
 
 @Injectable()
 export class AuthService {
@@ -22,7 +26,10 @@ export class AuthService {
     @InjectModel(User.name) private UserModel: Model<User>,
     @InjectModel(RefreshToken.name)
     private RefreshTokenModel: Model<RefreshToken>,
-    private JwtService: JwtService,
+    @InjectModel(ResetToken.name)
+    private ResetTokenModel: Model<ResetToken>,
+    private jwtService: JwtService,
+    private mailService: MailService,
   ) {}
 
   async signUp(signUpDto: SignUpDto) {
@@ -78,7 +85,7 @@ export class AuthService {
   }
 
   async generateUserTokens(userId: ObjectId) {
-    const accessToken = this.JwtService.sign({ userId }, { expiresIn: '1h' });
+    const accessToken = this.jwtService.sign({ userId }, { expiresIn: '1h' });
     const refreshToken = uuidv4();
 
     await this.storeRefreshToken(refreshToken, userId);
@@ -147,10 +154,42 @@ export class AuthService {
   async forgetPassword(email: string) {
     const user = await this.UserModel.findOne({ email });
     if (user) {
+      // If user exists, generate password reset link
+      const expiryDate = new Date();
+      expiryDate.setHours(expiryDate.getHours() + 1);
+
+      const resetToken = nanoid(64);
+      await this.ResetTokenModel.create({
+        token: resetToken,
+        userId: user._id,
+        expiryDate,
+      });
+
+      this.mailService.sendPasswordResetEmail(email, resetToken);
     }
 
     return {
       message: 'If this user exists, they will receive an email',
     };
+  }
+
+  async resetPassword(newPassword: string, resetToken: string) {
+    // Find a valid reset token document
+    const token = await this.ResetTokenModel.findOneAndDelete({
+      token: resetToken,
+      expiryDate: { $gte: new Date() },
+    });
+
+    if (!token) {
+      throw new UnauthorizedException('Invalid link');
+    }
+
+    const user = await this.UserModel.findById(token.userId);
+    if (!user) {
+      throw new InternalServerErrorException();
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
   }
 }
